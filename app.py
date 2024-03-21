@@ -1,10 +1,12 @@
 import sys
 import time
-from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel
-from PyQt5.QtCore import pyqtSignal, QObject, QThread, Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel, QPushButton
+from PyQt5.QtCore import pyqtSignal, QObject, QThread, Qt, QUrl
 from PyQt5.QtGui import QFont, QColor, QPalette
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
 from audio_analyser import AudioAnalyzer
 from shared_queue import SharedQueue
+import os
 
 class QueueListener(QObject):
     data_received = pyqtSignal(object)
@@ -23,12 +25,26 @@ class QueueListener(QObject):
             time.sleep(0.03)
     
 class TunerUi(QMainWindow):
+
+
     def __init__(self, queue):
         super().__init__()
         self.setWindowTitle("Guitar Tuner")
         self.setGeometry(100, 100, 400, 200)
+        self.player = QMediaPlayer()
 
-        # widget and layout
+        self.setup_ui()
+
+        # Data listener setup
+        self.listener = QueueListener(queue)
+        self.listenerThread = QThread()
+        self.listener.moveToThread(self.listenerThread)
+        self.listenerThread.started.connect(self.listener.pull_queue)
+        self.listener.data_received.connect(self.update_ui)
+        self.listenerThread.start()
+
+    def setup_ui(self):
+         # widget and layout
         self.main_widget = QWidget(self)
         self.setCentralWidget(self.main_widget)
         layout = QVBoxLayout(self.main_widget)
@@ -37,7 +53,6 @@ class TunerUi(QMainWindow):
         color = QColor(255, 255, 255)  # White color
         palette = QPalette()
         palette.setColor(QPalette.WindowText, color)
-
 
         # Note label
         self.pitchLabel = QLabel("Closest Pitch: -", self)
@@ -62,18 +77,15 @@ class TunerUi(QMainWindow):
         bgPalette = self.main_widget.palette()
         bgPalette.setColor(QPalette.Background, QColor(40, 44, 52))
         self.main_widget.setPalette(bgPalette)
+        
+        # Replay Button
+        self.replayButton = QPushButton('Replay Sound', self)
+        self.replayButton.clicked.connect(self.replay_sound)
 
         layout.addWidget(self.pitchLabel)
         layout.addWidget(self.frequency)
         layout.addWidget(self.hint)
-
-        # Data listener setup
-        self.listener = QueueListener(queue)
-        self.listenerThread = QThread()
-        self.listener.moveToThread(self.listenerThread)
-        self.listenerThread.started.connect(self.listener.pull_queue)
-        self.listener.data_received.connect(self.update_ui)
-        self.listenerThread.start()
+        layout.addWidget(self.replayButton)
 
     def update_ui(self, data):
         note, hint  = AudioAnalyzer.get_note_and_hint(data)
@@ -82,6 +94,15 @@ class TunerUi(QMainWindow):
         self.pitchLabel.setText(f"Closest Pitch: {note}")
         self.frequency.setText(f"Frequency: {data}")
         self.hint.setText(f"{hint}")
+    
+    def replay_sound(self):
+        print("button clicked")
+        # Method to handle playback
+        file_path = os.path.abspath("./audio_files/A2.wav")
+        url = QUrl.fromLocalFile(file_path)
+        content = QMediaContent(url)
+        self.player.setMedia(content)
+        self.player.play()
 
 
     def closeEvent(self, event):

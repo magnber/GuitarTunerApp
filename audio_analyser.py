@@ -13,9 +13,10 @@ class AudioAnalyzer(Thread):
             print("loudest frequency:", q_data, "nearest note:", a.frequency_to_note_name(q_data, 440))
             time.sleep(0.02) """
 
-    SAMPLING_RATE = 48000  
+    SAMPLING_RATE = 48000
+    CHANNELS = 1
     CHUNK_SIZE = 1024  # number of samples
-    BUFFER_TIMES = 50  # buffer length = CHUNK_SIZE * BUFFER_TIMES
+    BUFFER_TIMES = 50  # number of chnuks in buffer 
     PADDING = 3  # times the buffer length
 
     
@@ -39,7 +40,7 @@ class AudioAnalyzer(Thread):
         try:
             self.audio_object = PyAudio()
             self.stream = self.audio_object.open(format=paInt16,
-                                                 channels=1,
+                                                 channels=self.CHANNELS,
                                                  rate=self.SAMPLING_RATE,
                                                  input=True,
                                                  output=False,
@@ -95,14 +96,15 @@ class AudioAnalyzer(Thread):
                 data = self.stream.read(self.CHUNK_SIZE, exception_on_overflow=False)
                 data = np.frombuffer(data, dtype=np.int16)
 
-                # append data to audio buffer
+                # Roll data in buffer to the left 
                 self.buffer[:-self.CHUNK_SIZE] = self.buffer[self.CHUNK_SIZE:]
+                # append from the stream
                 self.buffer[-self.CHUNK_SIZE:] = data
 
                 # apply a hanning windown to smoothen the curve. This esensially taters the curve to 0 at each end.
                 hanning_window_buffer = self.buffer * self.hanning_window
 
-                ## apply padding for a smoother transition between buffer chunks
+                ## apply padding at the end of the buffer for a smoother transition between buffer chunks
                 padding = np.pad(hanning_window_buffer, (0, len(self.buffer) * self.PADDING),"constant")
                 
                 # apply a Fast Fourier transform to extract frequencies 
