@@ -148,6 +148,10 @@ class AudioAnalyzer(Thread):
         self.audio_object.terminate()
 
 
+    def stop(self):
+        """Stop the audio analysis and close resources."""
+        self.running = False
+
 if __name__ == "__main__":
     # Only for testing:
     from shared_queue import SharedQueue
@@ -156,9 +160,12 @@ if __name__ == "__main__":
     q = SharedQueue()
     a = AudioAnalyzer(q)
     a.start()
-
-    while True:
-        q_data = q.get()
-        if q_data is not None:
-            print( f"freq : {q_data}, note/hint:{a.get_note_and_hint(q_data)}")
-            time.sleep(0.02)
+    try:
+        while True:
+            q_data = q.get()
+            if q_data is not None:
+                print( f"freq : {q_data}, note/hint:{a.get_note_and_hint(q_data)}")
+                time.sleep(0.02)
+    except KeyboardInterrupt:
+        a.stop()
+        a.join()
