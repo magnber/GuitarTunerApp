@@ -1,4 +1,3 @@
-import copy
 from pyaudio import PyAudio, paInt16
 from threading import Thread
 import numpy as np
@@ -83,8 +82,10 @@ class AudioAnalyzer(Thread):
         return note,hint
  
     def run(self):
-        """ Main function where the microphone buffer gets read and
-            the fourier transformation gets applied """
+        """ 
+        Main function where the microphone buffer gets read and proccessed.
+        Output is placed on an instance of "shared_queue".
+        """
 
         self.running = True
 
@@ -99,10 +100,10 @@ class AudioAnalyzer(Thread):
                 self.buffer[-self.CHUNK_SIZE:] = data
 
                 # apply a hanning windown to smoothen the curve. This esensially taters the curve to 0 at each end.
-                hanning_window = self.buffer * self.hanning_window
+                hanning_window_buffer = self.buffer * self.hanning_window
 
                 ## apply padding for a smoother transition between buffer chunks
-                padding = np.pad(hanning_window, (0, len(self.buffer) * self.PADDING),"constant")
+                padding = np.pad(hanning_window_buffer, (0, len(self.buffer) * self.PADDING),"constant")
                 
                 # apply a Fast Fourier transform to extract frequencies 
                 fft = np.fft.fft(padding)
@@ -115,15 +116,20 @@ class AudioAnalyzer(Thread):
 
                 # apply a HPS (Harmonic Product Spectrum) to collaps hamonics frequencies into one pitch
                 magnitude_data_orig = np.copy(fft_magnitude)
-                for i in range(2, 4, 1):
-                    hps_len = int(np.ceil(len(fft_magnitude) / i))
-                    fft_magnitude[:hps_len] *= magnitude_data_orig[::i]  # multiply every i element
+                for downsample_factor in range(2, 4):
+                    hps_len = int(np.ceil(len(fft_magnitude) / downsample_factor))
+                     # multiply every downsample_factor'th element - 2 and 3 in this case
+                    downsampled = magnitude_data_orig[::downsample_factor]
+                    if len(downsampled) < hps_len:
+                            # Pad it with zeros to match potentially lower ceiling length
+                            downsampled = np.pad(downsampled, (0, hps_len - len(downsampled)), 'constant')
+                    fft_magnitude[:hps_len] *= downsampled
 
                 # get the corresponding frequency array
                 frequencies = np.fft.fftfreq(int((len(fft_magnitude) * 2) / 1),
                                              1. / self.SAMPLING_RATE)
 
-                # set magnitude of all frequencies below 60Hz to zero
+                # set magnitude of all frequencies below 60Hz to zero to further reduce the noise in the final output
                 for i, freq in enumerate(frequencies):
                     if freq > 60:
                         fft_magnitude[:i - 1] = 0

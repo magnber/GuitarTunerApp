@@ -1,2 +1,3 @@
 pyaudio
 numpy
+PyQt5

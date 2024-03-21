@@ -3,10 +3,10 @@ import time
 from PyQt5.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QLabel
 from PyQt5.QtCore import pyqtSignal, QObject, QThread, Qt
 from PyQt5.QtGui import QFont, QColor, QPalette
-from audio_processor.audio_analyser import AudioAnalyzer
-from audio_processor.shared_queue import SharedQueue
+from audio_analyser import AudioAnalyzer
+from shared_queue import SharedQueue
 
-class DataListener(QObject):
+class QueueListener(QObject):
     data_received = pyqtSignal(object)
 
     def __init__(self, queue):
@@ -22,7 +22,7 @@ class DataListener(QObject):
             # Hack to give the UI time to update, and the analyser time to update the feed
             time.sleep(0.03)
     
-class Tuner(QMainWindow):
+class TunerUi(QMainWindow):
     def __init__(self, queue):
         super().__init__()
         self.setWindowTitle("Guitar Tuner")
@@ -60,7 +60,7 @@ class Tuner(QMainWindow):
         # Set background color 
         self.main_widget.setAutoFillBackground(True)
         bgPalette = self.main_widget.palette()
-        bgPalette.setColor(QPalette.Background, QColor(40, 44, 52))  # Dark gray color
+        bgPalette.setColor(QPalette.Background, QColor(40, 44, 52))
         self.main_widget.setPalette(bgPalette)
 
         layout.addWidget(self.pitchLabel)
@@ -68,7 +68,7 @@ class Tuner(QMainWindow):
         layout.addWidget(self.hint)
 
         # Data listener setup
-        self.listener = DataListener(queue)
+        self.listener = QueueListener(queue)
         self.listenerThread = QThread()
         self.listener.moveToThread(self.listenerThread)
         self.listenerThread.started.connect(self.listener.pull_queue)
@@ -93,7 +93,7 @@ class Tuner(QMainWindow):
 if __name__ == "__main__":
     queue = SharedQueue()
     app = QApplication(sys.argv)
-    window = Tuner(queue)
+    window = TunerUi(queue)
     window.show()
 
     analyzer = AudioAnalyzer(queue)
