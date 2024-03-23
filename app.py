@@ -11,19 +11,18 @@ import os
 class AppSetup():
     def __init__(self):
         self.queue = SharedQueue()
-        self.analyzer = AudioAnalyzer(self.queue)
-        self.analyzer_running = False
+        self.analyzer = None
 
     def start_analyzer(self):
-        if not self.analyzer_running:
+        if not self.analyzer:
+            self.analyzer = AudioAnalyzer(self.queue)
             self.analyzer.start()
-            self.analyzer_running = True
 
     def stop_analyzer(self):
-        if self.analyzer_running:
-            self.analyzer.stop()  # Make sure the stop method properly cleans up the thread
-            self.analyzer.join()  # Wait for the thread to finish
-            self.analyzer_running = False
+        if self.analyzer:
+            self.analyzer.stop() 
+            self.analyzer.join()
+            self.analyzer = None
 
 
 class QueueListener(QObject):
@@ -40,7 +39,7 @@ class QueueListener(QObject):
             if data is not None:
                 self.data_received.emit(data)
             # Hack to give the UI time to update, and the analyzer time to update the feed
-            time.sleep(0.03)
+            time.sleep(0.02)
     
 class TunerUi(QMainWindow):
     def __init__(self, app_setup):
@@ -82,7 +81,6 @@ class TunerUi(QMainWindow):
         self.listenerThread.start() 
 
     def create_toggle_button(self):
-        # This method creates the toggle button and connects it to the toggle_mode slot
         self.toggleModeButton = QPushButton('Switch to Automatic', self)
         self.toggleModeButton.clicked.connect(self.toggle_mode)
 
@@ -90,7 +88,7 @@ class TunerUi(QMainWindow):
         self.font = QFont("Arial", 24, QFont.Bold)
         self.color = QColor(255, 255, 255)  # White color
         self.palette = QPalette()
-        self.palette.setColor(QPalette.WindowText, self.color)
+        # self.palette.setColor(QPalette.WindowText, self.color)
         
     def setup_automatic_ui(self):
         layout = QVBoxLayout(self.automatic_widget)
@@ -149,6 +147,7 @@ class TunerUi(QMainWindow):
         self.app_setup.stop_analyzer()
 
     def toggle_mode(self):
+        # toggle between automatic and manuel playback
         if self.mode == "automatic":
             self.mode = "manual"
             self.stack.setCurrentWidget(self.manual_widget)
@@ -162,7 +161,7 @@ class TunerUi(QMainWindow):
 
     
     def replay_sound(self,path):
-        # Method to handle playback
+        # Method to handle playback of an audiofile
         file_path = os.path.abspath(path)
         url = QUrl.fromLocalFile(file_path)
         content = QMediaContent(url)
