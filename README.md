@@ -1,6 +1,4 @@
-# YOUR PROJECT TITLE
-
-#### Video Demo: <URL HERE>
+# Guitar Tuner App
 
 #### Description:
 
